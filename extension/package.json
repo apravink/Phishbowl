@@ -1,0 +1,6 @@
+{
+  "name": "@phishbowl/extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phishbowl Chrome extension (MV3 service worker, popup, interstitial, options)"
+}
