@@ -2,5 +2,13 @@
   "name": "@phishbowl/extension",
   "version": "0.1.0",
   "private": true,
-  "description": "Phishbowl Chrome extension (MV3 service worker, popup, interstitial, options)"
+  "description": "Phishbowl Chrome extension (MV3 service worker, popup, interstitial, options)",
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  },
+  "scripts": {
+    "build": "vite build && cp public/manifest.json dist/",
+    "dev": "vite build --watch"
+  }
 }
