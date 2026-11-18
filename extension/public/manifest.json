@@ -1,0 +1,10 @@
+{
+    "manifest_version": 3,
+    "name": "Phishbowl",
+    "version": "0.1.0",
+    "description": "Flags phishing URLs before you load them",
+    "background": {
+        "service_worker": "background.js",
+        "type": "module"
+    }
+}

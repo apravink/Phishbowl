@@ -5,10 +5,12 @@
   "description": "Phishbowl Chrome extension (MV3 service worker, popup, interstitial, options)",
   "devDependencies": {
     "typescript": "^7.0.2",
-    "vite": "^8.3.8"
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
   },
   "scripts": {
     "build": "vite build && cp public/manifest.json dist/",
-    "dev": "vite build --watch"
+    "dev": "vite build --watch",
+    "test": "vitest run"
   }
 }
