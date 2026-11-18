@@ -23,9 +23,9 @@ Chrome extension (MV3) that classifies the current URL as phishing/benign via a 
 | ID | Requirement |
 |---|---|
 | REQ-1 | 4-tier cascade on every main-frame navigation. Skip subframes, `chrome-extension://`, `file://`, localhost, `about:` |
-| REQ-2 | Local blocklist: 10k URL cap (~0.5 MB, `chrome.storage.local`), 24h refresh via `chrome.alarms` from proxy with version-hash/ETag skip (~1 MB/day worst case), eviction by local hit-count then feed age |
+| REQ-2 | Local blocklist: 10k host cap (~0.5 MB, `chrome.storage.local`) — feed URLs resolved to hosts, **host-level matching**; 24h refresh via `chrome.alarms` with ETag/Last-Modified skip (OpenPhish community feed direct until Phase 5, proxy after; ~1 MB/day worst case), eviction by local hit-count then feed age |
 | REQ-3 | Feeds: OpenPhish community (bulk, redistributable) + Google Safe Browsing Lookup v4 (proxy-side; **ephemeral only** — minutes-scale in-memory, never persisted or redistributed, per Google ToS) |
-| REQ-4 | Tranco top-20k allowlist (~300 KB) bundled at build time; refreshed quarterly via extension release |
+| REQ-4 | Tranco top-20k allowlist from tranco-list.eu permanent zip URL (no API key; list ID pinned in generated file; ~300 KB) bundled at build time; refreshed quarterly via extension release |
 | REQ-5 | URL-only lexical feature vector (~15 fields): host entropy, subdomain depth, hyphen count, digit ratio, suspicious-TLD set, IP-literal host, punycode/homoglyph detection, brand-in-host/path, URL length, path depth |
 | REQ-6 | Jev integration (`jev-1.14.0`, pinned) via proxy: `state` = URL + feature vector; questions = `is_phishing` (Noul) + `impersonating_brand` (Choice). Provisional thresholds — block p≥0.85 & conf≥0.6, amber 0.5–0.85; tune in Phase 6 |
 | REQ-7 | Verdict caching: client `chrome.storage.session` LRU (500) + server KV (TTL 7d, SHA-256 keyed) |
@@ -91,7 +91,7 @@ phisher-chrome-web/
 ├── worker/
 │   ├── src/ (index.ts [Hono], feeds.ts, gsb.ts, jev.ts, kv.ts, metrics.ts)
 │   └── tests/
-├── scripts/fetch-tranco.ts
+├── scripts/ (gen-confusables.mjs, fetch-tranco.mjs — build-time data generators)
 ├── shared/types.ts          (Verdict, FeatureVector, BlocklistEntry — imported by both)
 └── migrations/0001_events.sql
 ```
@@ -130,16 +130,18 @@ GET  /health           →  { ok, feed_age_h, jev_calls_today }
 ### 2.6 Phases
 | # | Phase | Ships | Maps to | Acceptance |
 |---|---|---|---|---|
-| 1 | Skeleton | pnpm + Vite + TS + @crxjs, manifest, empty SW, vitest/eslint | REQ-1, NFR-1 | `pnpm build` → loadable unpacked extension |
-| 2 | Feature extractor | `extractFeatures()`, brand list, homoglyph maps | REQ-5 | Unit tests green on curated benign/phish corpus |
-| 3 | Local cascade T0–T2 | Tranco script, blocklist store + alarm, onCommitted → badge | REQ-1/2/4 | Feed URL → red badge; top sites unaffected |
+| 1 | Skeleton (done) | pnpm + Vite + TS + @crxjs, manifest, empty SW, vitest/eslint | REQ-1, NFR-1 | `pnpm build` → loadable unpacked extension |
+| 2 | Feature extractor (done) | `extractFeatures()`, brand list, punycode decoder, UTS#39 confusables (generated, pinned) | REQ-5 | Unit tests green: field anchors, RFC 3492 vectors, homograph + guard cases |
+| 3 | Local cascade T0–T2 | Tranco script (zip via fflate), suffix-match allowlist (T0), host-match blocklist + 24h alarm (T1, OpenPhish direct pre-worker), weighted pre-filter score (T2, provisional constants), onCommitted → badge | REQ-1/2/4 | Feed URL → red badge; top sites unaffected |
 | 4 | Blocking UX | blocked.html, session exceptions, notifications, popup shell | REQ-8/9/10 | E2E: test URL blocks, proceed works for session, notify once |
 | 5 | Worker proxy | Hono routes, OpenPhish normalizer, GSB (ephemeral, ToS-reviewed), Jev caller, KV, budget guard, D1 | REQ-3/6/12/14 | wrangler dev + curl suite; KV TTL verified; GSB never persisted |
-| 6 | Jev tuning | Wire T3; state/question design; threshold sweep on ~2k labeled URLs | REQ-6/7 | Precision/recall report; thresholds documented |
+| 6 | Jev tuning | Wire T3; state/question design; build labeled URL corpus (~2k); threshold sweep | REQ-6/7, NFR-7 | Precision/recall report; thresholds documented |
 | 7 | UI polish | Full popup; options = 2 toggles | REQ-10/11 | Manual pass |
-| 8 | Hardening | Privacy doc + policy page, permission justifications, README, edge-case audit | NFR-2/5/6 | Bundle audit clean |
+| 8 | Hardening | Privacy doc + policy page, permission justifications, data-source attributions (Tranco incl. Cloudflare Radar CC BY-NC + Majestic CC BY; OpenPhish; UTS#39 rev), README, edge-case audit | NFR-2/5/6 | Bundle audit clean |
 
 Phases 3–4 deliver a working local-only product before infra dependency exists.
+
+> Progress: Phases 1–2 complete (2026-11-17). Next: Phase 3 — local cascade T0–T2 (Tranco script, blocklist store + alarm, onCommitted → badge).
 
 ### 2.7 Edge cases (non-exhaustive, tested)
 SW idle-restarts (zero memory state) · rapid multi-tab navigation (debounce) · URL credentials/punycode normalization · interstitial re-entry loop guard (exception consumed before redirect) · Jev 5xx/timeout → unverified · GSB quota exhaustion → silent skip · feed fetch failure → stale cache + badge notice · blocklist overflow → hit-count eviction · repeat-offender hosts → notification dedupe.

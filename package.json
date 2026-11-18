@@ -4,5 +4,11 @@
   "private": true,
   "description": "Chrome extension that detects phishing URLs via a cascade of allow/blocklists, lexical analysis, and the Jev decision model",
   "packageManager": "pnpm@12.21.0",
-  "scripts": {}
+  "scripts": {
+    "gen:confusables": "node scripts/gen-confusables.mjs",
+    "fetch:tranco": "node scripts/fetch-tranco.mjs"
+  },
+  "devDependencies": {
+    "fflate": "^0.8.3"
+  }
 }
