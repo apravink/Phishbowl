@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isAllowed } from "../src/background/allowlist";
-import { TRANCO } from "../src/background/tranco.gen";
+import { isAllowed } from "../../src/background/allowlist";
+import { TRANCO } from "../../src/background/tranco.gen";
 
 describe("isAllowed — suffix walk (injected fixture)", () => {
   const set = new Set(["example.com", "bbc.co.uk", "t.co"]);
