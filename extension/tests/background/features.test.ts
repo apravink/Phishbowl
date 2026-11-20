@@ -4,7 +4,7 @@ import {
   decodePunycode,
   extractFeatures,
   skeleton,
-} from "../src/background/features";
+} from "../../src/background/features";
 
 const f = (href: string) => extractFeatures(new URL(href));
 
