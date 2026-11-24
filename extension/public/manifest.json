@@ -3,7 +3,8 @@
     "name": "Phishbowl",
     "version": "0.1.0",
     "description": "Flags phishing URLs before you load them",
-    "permissions": ["webNavigation"],
+    "permissions": ["webNavigation", "storage", "alarms"],
+    "host_permissions": ["https://openphish.com/*"],
     "background": {
         "service_worker": "background.js",
         "type": "module"
