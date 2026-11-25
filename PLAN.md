@@ -58,6 +58,8 @@ DOM/content signals · custom ML training · web dashboard · Firefox/Edge ports
 | Jev API/alias changes | Pinned model version; proxy is single integration point |
 | GSB ToS violation via caching | Ephemeral-only design enforced in Phase 5 review |
 | Cost overrun | Pre-filter gating, dual cache, budget guard |
+| Shared-hosting domains in T0 (`pages.dev`, `github.io`, `amazonaws.com`) bypassing T1–T3 | Shared-host exclusion set and/or T1-before-T0 check (finalize in Phase 3/5) |
+| Stale local blocklist entries (cleaned-up domains staying blocked across merges) | Per-entry TTL or Worker-managed expiring feed in Phase 5 |
 
 ## 2. Low-Level Design
 
@@ -82,7 +84,8 @@ phisher-chrome-web/
 │   ├── public/manifest.json
 │   ├── src/
 │   │   ├── background/ (index.ts, cascade.ts, blocklist.ts, allowlist.ts,
-│   │   │                features.ts, verdict-cache.ts, block.ts, badge.ts, notify.ts)
+│   │   │                features.ts, confusables.gen.ts, tranco.gen.ts,
+│   │   │                verdict-cache.ts, block.ts, badge.ts, notify.ts)
 │   │   ├── popup/    (index.html, main.ts)
 │   │   ├── blocked/  (blocked.html, main.ts)
 │   │   ├── options/  (options.html, main.ts)
@@ -130,9 +133,9 @@ GET  /health           →  { ok, feed_age_h, jev_calls_today }
 ### 2.6 Phases
 | # | Phase | Ships | Maps to | Acceptance |
 |---|---|---|---|---|
-| 1 | Skeleton (done) | pnpm + Vite + TS + @crxjs, manifest, empty SW, vitest/eslint | REQ-1, NFR-1 | `pnpm build` → loadable unpacked extension |
+| 1 | Skeleton (done) | pnpm + Vite + TS, manifest, empty SW, vitest | REQ-1, NFR-1 | `pnpm build` → loadable unpacked extension |
 | 2 | Feature extractor (done) | `extractFeatures()`, brand list, punycode decoder, UTS#39 confusables (generated, pinned) | REQ-5 | Unit tests green: field anchors, RFC 3492 vectors, homograph + guard cases |
-| 3 | Local cascade T0–T2 | Tranco script (zip via fflate), suffix-match allowlist (T0), host-match blocklist + 24h alarm (T1, OpenPhish direct pre-worker), weighted pre-filter score (T2, provisional constants), onCommitted → badge | REQ-1/2/4 | Feed URL → red badge; top sites unaffected |
+| 3 | Local cascade T0–T2 (in progress) | Tranco script (zip via fflate), suffix-match allowlist (T0), host-match blocklist + 24h alarm (T1, OpenPhish direct pre-worker), weighted pre-filter score (T2, provisional constants), onCommitted → badge | REQ-1/2/4 | Feed URL → red badge; top sites unaffected |
 | 4 | Blocking UX | blocked.html, session exceptions, notifications, popup shell | REQ-8/9/10 | E2E: test URL blocks, proceed works for session, notify once |
 | 5 | Worker proxy | Hono routes, OpenPhish normalizer, GSB (ephemeral, ToS-reviewed), Jev caller, KV, budget guard, D1 | REQ-3/6/12/14 | wrangler dev + curl suite; KV TTL verified; GSB never persisted |
 | 6 | Jev tuning | Wire T3; state/question design; build labeled URL corpus (~2k); threshold sweep | REQ-6/7, NFR-7 | Precision/recall report; thresholds documented |
@@ -141,10 +144,10 @@ GET  /health           →  { ok, feed_age_h, jev_calls_today }
 
 Phases 3–4 deliver a working local-only product before infra dependency exists.
 
-> Progress: Phases 1–2 complete (2026-11-17). Next: Phase 3 — local cascade T0–T2 (Tranco script, blocklist store + alarm, onCommitted → badge).
+> Progress: Phases 1–2 complete (2026-11-17). Phase 3 in progress (2026-11-24): T0 Tranco allowlist (`V38GN`), T1 OpenPhish blocklist + 24h alarm + merge/eviction, and `onCommitted` → badge harness done (35 tests passing). Next: T2 lexical pre-filter, `cascade.ts` orchestrator, and Phase 2–3 edge-case hardening.
 
 ### 2.7 Edge cases (non-exhaustive, tested)
-SW idle-restarts (zero memory state) · rapid multi-tab navigation (debounce) · URL credentials/punycode normalization · interstitial re-entry loop guard (exception consumed before redirect) · Jev 5xx/timeout → unverified · GSB quota exhaustion → silent skip · feed fetch failure → stale cache + badge notice · blocklist overflow → hit-count eviction · repeat-offender hosts → notification dedupe.
+SW idle-restarts (zero memory state) · rapid multi-tab navigation (debounce) · URL credentials/punycode normalization · interstitial re-entry loop guard (exception consumed before redirect) · Jev 5xx/timeout → unverified · GSB quota exhaustion → silent skip · feed fetch failure → stale cache + badge notice · blocklist overflow → hit-count eviction · repeat-offender hosts → notification dedupe · trailing-dot FQDNs (evil.example.) · malformed xn-- punycode · closed-tab/stale-nav badge updates · hitcounts pruning on eviction.
 
 ### 2.8 Backlog
 DNR session fast-path (zero-flash repeat blocks) · DOM content signals · web dashboard · Firefox/Edge port · community reporting of false pos/negs.
